@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prime Tracker Pro</title>
+    <style>
+        :root {
+            --bg-dark: #121212;
+            --bg-panel: #1e1e1e;
+            --text-main: #e0e0e0;
+            --text-muted: #888;
+            --accent: #d4af37; 
+            --accent-hover: #bda030;
+            --plat: #8ea5d8; 
+            --border: #333;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            margin: 0;
+            padding: 10px;
+            padding-top: 120px; /* Space for fixed header */
+        }
+        .header {
+            position: fixed;
+            top: 0; left: 0; right: 0;
+            background-color: var(--bg-dark);
+            padding: 10px;
+            z-index: 100;
+            border-bottom: 1px solid var(--border);
+        }
+        .search-bar {
+            width: 100%;
+            padding: 12px;
+            background-color: var(--bg-panel);
+            border: 1px solid var(--border);
+            color: var(--text-main);
+            border-radius: 6px;
+            font-size: 1rem;
+            box-sizing: border-box;
+            margin-bottom: 10px;
+        }
+        .search-bar:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+        .tabs {
+            display: flex;
+            overflow-x: auto;
+            gap: 8px;
+            padding-bottom: 5px;
+            scrollbar-width: none; /* Firefox */
+        }
+        .tabs::-webkit-scrollbar { display: none; } /* Chrome/Brave */
+        .tab-btn {
+            background-color: var(--bg-panel);
+            color: var(--text-main);
+            border: 1px solid var(--border);
+            padding: 8px 16px;
+            border-radius: 20px;
+            white-space: nowrap;
+            cursor: pointer;
+            font-size: 0.9rem;
+        }
+        .tab-btn.active {
+            background-color: var(--accent);
+            color: #000;
+            font-weight: bold;
+            border-color: var(--accent);
+        }
+        .container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(100%, 1fr));
+            gap: 10px;
+        }
+        .item-card {
+            background-color: var(--bg-panel);
+            border-left: 4px solid var(--accent);
+            border-radius: 6px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            overflow: hidden;
+        }
+        .item-header {
+            padding: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+        }
+        .item-name {
+            font-weight: bold;
+            font-size: 1.1rem;
+        }
+        .item-status {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+        .item-details {
+            display: none; /* Hidden by default */
+            padding: 0 15px 15px 15px;
+            border-top: 1px solid var(--border);
+            background-color: #1a1a1a;
+        }
+        .item-details.expanded {
+            display: block;
+        }
+        .price-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px dashed #333;
+            font-size: 0.95rem;
+        }
+        .price-row:last-child { border-bottom: none; }
+        .price-row.set-row {
+            font-weight: bold;
+            color: var(--accent);
+            border-bottom: 1px solid #444;
+            margin-bottom: 5px;
+        }
+        .plat-val {
+            color: var(--plat);
+            font-weight: bold;
+        }
+        .loading-text {
+            color: var(--accent);
+            font-style: italic;
+            text-align: center;
+            padding: 10px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <input type="search" id="searchInput" class="search-bar" placeholder="Search prime items...">
+        <div class="tabs" id="tabsContainer">
+            <button class="tab-btn active" data-tab="All">All</button>
+            <button class="tab-btn" data-tab="Warframe">Warframe</button>
+            <button class="tab-btn" data-tab="Primary">Primary</button>
+            <button class="tab-btn" data-tab="Secondary">Secondary</button>
+            <button class="tab-btn" data-tab="Melee">Melee</button>
+            <button class="tab-btn" data-tab="Archwing">Archwing</button>
+        </div>
+    </div>
+
+    <div class="container" id="appContainer"></div>
+
+    <script>
+        // Database of Prime Items
+        const trackedItems = [
+            // WARFRAMES (Comprehensive)
+            ...["Ash", "Atlas", "Banshee", "Baruuk", "Chroma", "Ember", "Equinox", "Excalibur", "Frost", "Gara", "Garuda", "Gauss", "Grendel", "Harrow", "Hildryn", "Hydroid", "Inaros", "Ivara", "Khora", "Limbo", "Loki", "Mag", "Mesa", "Mirage", "Nekros", "Nezha", "Nidus", "Nova", "Nyx", "Oberon", "Octavia", "Protea", "Revenant", "Rhino", "Saryn", "Sevagoth", "Titania", "Trinity", "Valkyr", "Vauban", "Volt", "Wisp", "Wukong", "Zephyr"].map(name => ({
+                name: `${name} Prime`, category: "Warframe", setUrlName: `${name.toLowerCase()}_prime_set`,
+                parts: [
+                    { name: "Blueprint", urlName: `${name.toLowerCase()}_prime_blueprint` },
+                    { name: "Chassis", urlName: `${name.toLowerCase()}_prime_chassis_blueprint` },
+                    { name: "Neuroptics", urlName: `${name.toLowerCase()}_prime_neuroptics_blueprint` },
+                    { name: "Systems", urlName: `${name.toLowerCase()}_prime_systems_blueprint` }
+                ]
+            })),
+
+            // ARCHWING
+            { name: "Odonata Prime", category: "Archwing", setUrlName: "odonata_prime_set", parts: [ { name: "Blueprint", urlName: "odonata_prime_blueprint" }, { name: "Harness", urlName: "odonata_prime_harness_blueprint" }, { name: "Systems", urlName: "odonata_prime_systems_blueprint" }, { name: "Wings", urlName: "odonata_prime_wings_blueprint" } ] },
+            { name: "Corvas Prime", category: "Archwing", setUrlName: "corvas_prime_set", parts: [ { name: "Blueprint", urlName: "corvas_prime_blueprint" }, { name: "Barrel", urlName: "corvas_prime_barrel" }, { name: "Receiver", urlName: "corvas_prime_receiver" }, { name: "Stock", urlName: "corvas_prime_stock" } ] },
+            { name: "Dual Decurion Prime", category: "Archwing", setUrlName: "dual_decurion_prime_set", parts: [ { name: "Blueprint", urlName: "dual_decurion_prime_blueprint" }, { name: "Barrel", urlName: "dual_decurion_prime_barrel" }, { name: "Receiver", urlName: "dual_decurion_prime_receiver" } ] },
+            { name: "Imperator Prime", category: "Archwing", setUrlName: "imperator_prime_set", parts: [ { name: "Blueprint", urlName: "imperator_prime_blueprint" }, { name: "Barrel", urlName: "imperator_prime_barrel" }, { name: "Receiver", urlName: "imperator_prime_receiver" } ] },
+            { name: "Veritux Prime", category: "Archwing", setUrlName: "veritux_prime_set", parts: [ { name: "Blueprint", urlName: "veritux_prime_blueprint" }, { name: "Blade", urlName: "veritux_prime_blade" }, { name: "Handle", urlName: "veritux_prime_handle" } ] },
+
+            // PRIMARY (Selection)
+            { name: "Braton Prime", category: "Primary", setUrlName: "braton_prime_set", parts: [ { name: "Blueprint", urlName: "braton_prime_blueprint" }, { name: "Barrel", urlName: "braton_prime_barrel" }, { name: "Receiver", urlName: "braton_prime_receiver" }, { name: "Stock", urlName: "braton_prime_stock" } ] },
+            { name: "Burston Prime", category: "Primary", setUrlName: "burston_prime_set", parts: [ { name: "Blueprint", urlName: "burston_prime_blueprint" }, { name: "Barrel", urlName: "burston_prime_barrel" }, { name: "Receiver", urlName: "burston_prime_receiver" }, { name: "Stock", urlName: "burston_prime_stock" } ] },
+            { name: "Cernos Prime", category: "Primary", setUrlName: "cernos_prime_set", parts: [ { name: "Blueprint", urlName: "cernos_prime_blueprint" }, { name: "Grip", urlName: "cernos_prime_grip" }, { name: "String", urlName: "cernos_prime_string" }, { name: "Upper Limb", urlName: "cernos_prime_upper_limb" }, { name: "Lower Limb", urlName: "cernos_prime_lower_limb" } ] },
+            { name: "Corinth Prime", category: "Primary", setUrlName: "corinth_prime_set", parts: [ { name: "Blueprint", urlName: "corinth_prime_blueprint" }, { name: "Barrel", urlName: "corinth_prime_barrel" }, { name: "Receiver", urlName: "corinth_prime_receiver" }, { name: "Stock", urlName: "corinth_prime_stock" } ] },
+            { name: "Fulmin Prime", category: "Primary", setUrlName: "fulmin_prime_set", parts: [ { name: "Blueprint", urlName: "fulmin_prime_blueprint" }, { name: "Barrel", urlName: "fulmin_prime_barrel" }, { name: "Receiver", urlName: "fulmin_prime_receiver" }, { name: "Stock", urlName: "fulmin_prime_stock" } ] },
+            { name: "Soma Prime", category: "Primary", setUrlName: "soma_prime_set", parts: [ { name: "Blueprint", urlName: "soma_prime_blueprint" }, { name: "Barrel", urlName: "soma_prime_barrel" }, { name: "Receiver", urlName: "soma_prime_receiver" }, { name: "Stock", urlName: "soma_prime_stock" } ] },
+            { name: "Tigris Prime", category: "Primary", setUrlName: "tigris_prime_set", parts: [ { name: "Blueprint", urlName: "tigris_prime_blueprint" }, { name: "Barrel", urlName: "tigris_prime_barrel" }, { name: "Receiver", urlName: "tigris_prime_receiver" }, { name: "Stock", urlName: "tigris_prime_stock" } ] },
+
+            // SECONDARY (Selection)
+            { name: "Lex Prime", category: "Secondary", setUrlName: "lex_prime_set", parts: [ { name: "Blueprint", urlName: "lex_prime_blueprint" }, { name: "Barrel", urlName: "lex_prime_barrel" }, { name: "Receiver", urlName: "lex_prime_receiver" } ] },
+            { name: "Spira Prime", category: "Secondary", setUrlName: "spira_prime_set", parts: [ { name: "Blueprint", urlName: "spira_prime_blueprint" }, { name: "Blade", urlName: "spira_prime_blade" }, { name: "Pouch", urlName: "spira_prime_pouch" } ] },
+            { name: "Lex Prime", category: "Secondary", setUrlName: "lex_prime_set", parts: [ { name: "Blueprint", urlName: "lex_prime_blueprint" }, { name: "Barrel", urlName: "lex_prime_barrel" }, { name: "Receiver", urlName: "lex_prime_receiver" } ] },
+            { name: "Pandero Prime", category: "Secondary", setUrlName: "pandero_prime_set", parts: [ { name: "Blueprint", urlName: "pandero_prime_blueprint" }, { name: "Barrel", urlName: "pandero_prime_barrel" }, { name: "Receiver", urlName: "pandero_prime_receiver" } ] },
+
+            // MELEE (Selection)
+            { name: "Glaive Prime", category: "Melee", setUrlName: "glaive_prime_set", parts: [ { name: "Blueprint", urlName: "glaive_prime_blueprint" }, { name: "Blade", urlName: "glaive_prime_blade" }, { name: "Disc", urlName: "glaive_prime_disc" } ] },
+            { name: "Kronen Prime", category: "Melee", setUrlName: "kronen_prime_set", parts: [ { name: "Blueprint", urlName: "kronen_prime_blueprint" }, { name: "Blade", urlName: "kronen_prime_blade" }, { name: "Handle", urlName: "kronen_prime_handle" } ] },
+            { name: "Nikana Prime", category: "Melee", setUrlName: "nikana_prime_set", parts: [ { name: "Blueprint", urlName: "nikana_prime_blueprint" }, { name: "Blade", urlName: "nikana_prime_blade" }, { name: "Hilt", urlName: "nikana_prime_hilt" } ] },
+            { name: "Orthos Prime", category: "Melee", setUrlName: "orthos_prime_set", parts: [ { name: "Blueprint", urlName: "orthos_prime_blueprint" }, { name: "Blade", urlName: "orthos_prime_blade" }, { name: "Handle", urlName: "orthos_prime_handle" } ] }
+        ];
+
+        let currentTab = "All";
+        let searchQuery = "";
+
+        const appContainer = document.getElementById('appContainer');
+        const searchInput = document.getElementById('searchInput');
+        const tabBtns = document.querySelectorAll('.tab-btn');
+
+        // Delay helper for API limits
+        const delay = ms => new Promise(res => setTimeout(res, ms));
+
+        // Fetch logic
+        async function fetchLowestPrice(urlName) {
+            try {
+                const targetUrl = encodeURIComponent(`https://api.warframe.market/v1/items/${urlName}/orders`);
+                
+                // Use /get instead of /raw. This forces CORS headers even for origin 'null'
+                const proxyUrl = `https://api.allorigins.win/get?url=${targetUrl}`;
+                
+                const response = await fetch(proxyUrl);
+                if (!response.ok) return 'N/A';
+                
+                const proxyData = await response.json();
+                
+                // The /get endpoint wraps the Warframe Market response in a string called 'contents'.
+                // We have to parse that string back into a usable JSON object.
+                const data = JSON.parse(proxyData.contents);
+                
+                const validOrders = data.payload.orders.filter(o => 
+                    o.order_type === 'sell' && 
+                    o.user.status === 'ingame'
+                );
+
+                if (validOrders.length === 0) return 'N/A';
+                
+                validOrders.sort((a, b) => a.platinum - b.platinum);
+                return validOrders[0].platinum + 'p';
+            } catch (e) {
+                console.error("Fetch error:", e);
+                return 'Err';
+            }
+        }
+
+        // Handle Expand & Fetch
+        async function expandItem(item, detailsDiv, statusSpan) {
+            if (detailsDiv.classList.contains('expanded')) {
+                detailsDiv.classList.remove('expanded');
+                return;
+            }
+            
+            // Expand visually first
+            detailsDiv.classList.add('expanded');
+
+            // If already loaded, do nothing else
+            if (detailsDiv.dataset.loaded === "true") return;
+
+            statusSpan.textContent = "Fetching prices...";
+            detailsDiv.innerHTML = '<div class="loading-text">Contacting warframe.market...</div>';
+
+            let htmlContent = '';
+
+            // Fetch Set Price
+            const setPrice = await fetchLowestPrice(item.setUrlName);
+            htmlContent += `<div class="price-row set-row"><span>Full Set</span><span class="plat-val">${setPrice}</span></div>`;
+            await delay(350);
+
+            // Fetch Parts
+            for (const part of item.parts) {
+                const partPrice = await fetchLowestPrice(part.urlName);
+                htmlContent += `<div class="price-row"><span>${part.name}</span><span class="plat-val">${partPrice}</span></div>`;
+                await delay(350);
+            }
+
+            detailsDiv.innerHTML = htmlContent;
+            detailsDiv.dataset.loaded = "true";
+            statusSpan.textContent = "Prices loaded";
+        }
+
+        // Render UI
+        function renderUI() {
+            appContainer.innerHTML = '';
+
+            const filteredItems = trackedItems.filter(item => {
+                const matchesTab = currentTab === "All" || item.category === currentTab;
+                const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase());
+                return matchesTab && matchesSearch;
+            });
+
+            filteredItems.forEach(item => {
+                const card = document.createElement('div');
+                card.className = 'item-card';
+
+                const header = document.createElement('div');
+                header.className = 'item-header';
+                
+                const nameSpan = document.createElement('span');
+                nameSpan.className = 'item-name';
+                nameSpan.textContent = item.name;
+
+                const statusSpan = document.createElement('span');
+                statusSpan.className = 'item-status';
+                statusSpan.textContent = "Tap to load prices";
+
+                header.appendChild(nameSpan);
+                header.appendChild(statusSpan);
+
+                const detailsDiv = document.createElement('div');
+                detailsDiv.className = 'item-details';
+                detailsDiv.dataset.loaded = "false";
+
+                header.onclick = () => expandItem(item, detailsDiv, statusSpan);
+
+                card.appendChild(header);
+                card.appendChild(detailsDiv);
+                appContainer.appendChild(card);
+            });
+        }
+
+        // Event Listeners
+        searchInput.addEventListener('input', (e) => {
+            searchQuery = e.target.value;
+            renderUI();
+        });
+
+        tabBtns.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                tabBtns.forEach(b => b.classList.remove('active'));
+                e.target.classList.add('active');
+                currentTab = e.target.dataset.tab;
+                renderUI();
+            });
+        });
+
+        // Init
+        renderUI();
+    </script>
+</body>
+</html>
