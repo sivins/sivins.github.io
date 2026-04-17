@@ -204,19 +204,16 @@
         // Fetch logic
         async function fetchLowestPrice(urlName) {
             try {
-                const targetUrl = encodeURIComponent(`https://api.warframe.market/v1/items/${urlName}/orders`);
+                const targetUrl = `https://api.warframe.market/v1/items/${urlName}/orders`;
                 
-                // Use /get instead of /raw. This forces CORS headers even for origin 'null'
-                const proxyUrl = `https://api.allorigins.win/get?url=${targetUrl}`;
+                // Switch to corsproxy.io, which is often friendlier to github pages
+                const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`;
                 
                 const response = await fetch(proxyUrl);
                 if (!response.ok) return 'N/A';
                 
-                const proxyData = await response.json();
-                
-                // The /get endpoint wraps the Warframe Market response in a string called 'contents'.
-                // We have to parse that string back into a usable JSON object.
-                const data = JSON.parse(proxyData.contents);
+                // No need to use JSON.parse() on a wrapper here, we get the raw data back
+                const data = await response.json();
                 
                 const validOrders = data.payload.orders.filter(o => 
                     o.order_type === 'sell' && 
