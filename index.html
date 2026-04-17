@@ -206,8 +206,7 @@
             try {
                 const targetUrl = `https://api.warframe.market/v1/items/${urlName}/orders`;
                 
-                // Switch to corsproxy.io, which is often friendlier to github pages
-                const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`;
+                const proxyUrl = `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl)}`;
                 
                 const response = await fetch(proxyUrl);
                 if (!response.ok) return 'N/A';
