@@ -206,7 +206,8 @@
             try {
                 const targetUrl = `https://api.warframe.market/v1/items/${urlName}/orders`;
                 
-                const proxyUrl = `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl)}`;
+                // Replace 'yourname' with your actual Cloudflare worker subdomain
+                const proxyUrl = `https://soft-meadow-f5b0.sean42ivins.workers.dev/?url=${encodeURIComponent(targetUrl)}`;
                 
                 const response = await fetch(proxyUrl);
                 if (!response.ok) return 'N/A';
